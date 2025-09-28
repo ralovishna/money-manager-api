@@ -3,6 +3,7 @@ package in.ralo.moneymanager.service;
 import in.ralo.moneymanager.dto.ExpenseDTO;
 import org.springframework.data.domain.Sort;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -27,4 +28,8 @@ public interface ExpenseService {
 
     //notifications
     List<ExpenseDTO> getExpensesForUserOnDate(Long profileId, LocalDate date);
+
+    void sendExpenseExcelEmail() throws IOException;
+
+    byte[] generateExpenseExcel() throws IOException;
 }

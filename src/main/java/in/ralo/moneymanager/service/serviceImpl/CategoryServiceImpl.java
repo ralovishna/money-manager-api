@@ -59,6 +59,7 @@ public class CategoryServiceImpl implements CategoryService {
         Category existingCategory = optionalCategory.get();
         existingCategory.setName(categoryDTO.getName());
         existingCategory.setIcon(categoryDTO.getIcon());
+        existingCategory.setType(categoryDTO.getType());
 
         return toDto(categoryRepo.save(existingCategory));
     }

@@ -13,7 +13,7 @@ import java.util.List;
 
 @Repository
 public interface ExpenseRepo extends JpaRepository<Expense, Long> {
-//    List<Expense> findByProfileIdOrderByDateDesc(Long profileId);
+    List<Expense> findByProfileIdOrderByDateDesc(Long profileId);
 
     List<Expense> findTop5ByProfileIdOrderByDateDesc(Long profileId);
 

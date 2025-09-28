@@ -6,12 +6,17 @@ import in.ralo.moneymanager.model.Expense;
 import in.ralo.moneymanager.model.Profile;
 import in.ralo.moneymanager.repository.CategoryRepo;
 import in.ralo.moneymanager.repository.ExpenseRepo;
+import in.ralo.moneymanager.service.EmailService;
 import in.ralo.moneymanager.service.ExpenseService;
 import in.ralo.moneymanager.service.ProfileService;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -23,6 +28,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final CategoryRepo categoryRepo;
     private final ExpenseRepo expenseRepo;
     private final ProfileService profileService;
+    private final EmailService emailService;
 
     @Override
     public ExpenseDTO addExpense(ExpenseDTO expenseDTO) {
@@ -92,6 +98,71 @@ public class ExpenseServiceImpl implements ExpenseService {
         List<Expense> expenseDTOList = expenseRepo.findByProfileIdAndDate(profileId, date);
 
         return expenseDTOList.stream().map(this::toDTO).toList();
+    }
+
+    @Override
+    public void sendExpenseExcelEmail() throws IOException {
+        byte[] excelData = generateExpenseExcel();
+
+        // Prepare email content
+        Profile currentUser = profileService.getCurrentProfile();
+        String toEmail = currentUser.getEmail(); // Use current user's email
+        String subject = "Expense Details Report";
+        String body = "Dear User,<br><br>Please find your expense details attached.<br><br>Generated on: " + new java.util.Date() + "<br><br>Best regards,<br>Money Manager Team";
+
+        // Use EmailService to send email with attachment
+        try {
+            emailService.sendMail(toEmail, subject, body, "expense_details.xlsx", excelData);
+        } catch (Exception e) {
+            throw new RuntimeException("Error sending email with Excel attachment: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public byte[] generateExpenseExcel() throws IOException {
+        Profile currentUser = profileService.getCurrentProfile();
+        List<Expense> expenses = expenseRepo.findByProfileIdOrderByDateDesc(currentUser.getId());
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Expense Details");
+
+            // Header style
+            CellStyle headerStyle = workbook.createCellStyle();
+            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            org.apache.poi.ss.usermodel.Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            headerStyle.setFont(headerFont);
+
+            // Header row
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {"Date", "Amount", "Name", "Category"};
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+                sheet.autoSizeColumn(i);
+            }
+
+            // Data rows
+            int rowNum = 1;
+            for (Expense expense : expenses) {
+                Row row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(expense.getDate().toString());
+                row.createCell(1).setCellValue(expense.getAmount().doubleValue());
+                row.createCell(2).setCellValue(expense.getName() != null ? expense.getName() : "");
+                row.createCell(3).setCellValue(expense.getCategory() != null ? expense.getCategory().getName() : "");
+            }
+
+            // Write to byte array
+            try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                workbook.write(out);
+                return out.toByteArray();
+            }
+        } catch (IOException e) {
+            throw new IOException("Error generating Excel file: " + e.getMessage());
+        }
     }
 
     // helper methods
